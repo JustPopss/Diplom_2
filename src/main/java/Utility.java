@@ -4,6 +4,9 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 
+import io.qameta.allure.Step;
+import io.restassured.response.Response;
+
 import static io.restassured.RestAssured.*;
 import static java.net.HttpURLConnection.*;
 import static org.hamcrest.Matchers.is;
@@ -13,24 +16,23 @@ public class Utility {
 
     protected String accessToken;
 
-    public void createNewUserStatus200(UserData userData) {
-        accessToken = given()
+    @Step("Create new User")
+    public Response createNewUser(UserData userData) {
+        return given()
                 .baseUri(Endpoints.BASE_URI)
                 .log().body()
                 .contentType(ContentType.JSON)
                 .body(userData)
-                .when()
-                .post(Endpoints.CREATE_USER)
-                .then()
-                .log().body()
-                .log().status()
-                .statusCode(HTTP_OK)
-                .body("success", is(true))
-                .body("accessToken", is(notNullValue()))
-                .extract().path("accessToken");
+                .post(Endpoints.CREATE_USER);
     }
 
-    public void deleteUserStatus202() {
+    @Step("Extract token")
+    public String extractToken(Response response) {
+        return response.path("accessToken");
+    }
+
+    @Step("Delete user")
+    public void deleteUserStatus202(String accessToken) {
         given()
                 .baseUri(Endpoints.BASE_URI)
                 .log().body()
@@ -38,48 +40,27 @@ public class Utility {
                 .header("Authorization", "Bearer" + accessToken)
                 .delete(Endpoints.USER_DATA)
                 .then()
-                .log().body()
-                .log().status()
                 .body("success", is(true))
                 .body("message", is("User successfully removed"))
-                .statusCode(HTTP_ACCEPTED);
+                .statusCode(HTTP_ACCEPTED)
+                .log().status()
+                .log().body();
     }
 
-    public void createDoubleUserStatus403(UserData userData) {
-        given()
+    @Step("Create new User without fields")
+    public Response createUserWithInvalidDataStatus403(UserData userData) {
+        return given()
                 .baseUri(Endpoints.BASE_URI)
                 .log().body()
                 .contentType(ContentType.JSON)
                 .body(userData)
                 .when()
-                .post(Endpoints.CREATE_USER)
-                .then()
-                .log().body()
-                .log().status()
-                .body("success", is(false))
-                .body("message", is("User already exists"))
-                .statusCode(HTTP_FORBIDDEN);
+                .post(Endpoints.CREATE_USER);
     }
 
-    public void createUserWithInvalidDataStatus403(UserData userData) {
-        given()
-                .baseUri(Endpoints.BASE_URI)
-                .log().body()
-                .contentType(ContentType.JSON)
-                .body(userData)
-                .when()
-                .post(Endpoints.CREATE_USER)
-                .then()
-                .log().body()
-                .log().status()
-                .body("success", is(false))
-                .body("message", is("Email, password and name are required fields"))
-                .statusCode(HTTP_FORBIDDEN);
-        // добавить текст
-    }
-
-    public void loginNewUserStatus200(UserData userData) {
-        given()
+    @Step("Login user")
+    public Response loginNewUserStatus200(UserData userData) {
+        return given()
                 .baseUri(Endpoints.BASE_URI)
                 .log().body()
                 .log().headers()
@@ -87,19 +68,13 @@ public class Utility {
                 .body(userData)
                 .header("Authorization", "Bearer" + accessToken)
                 .when()
-                .post(Endpoints.AUTHORIZATION)
-                .then()
-                .log().body()
-                .log().headers()
-                .log().status()
-                .body("success", is(true))
-                .body("accessToken", is(notNullValue()))
-                .body("user.email", is(UserData.EMAIL))
-                .statusCode(HTTP_OK);
+                .post(Endpoints.AUTHORIZATION);
     }
 
-    public void loginUserInvalidDataStatus401(UserData userData) {
-        given()
+
+    @Step("Login user with incorrect fields")
+    public Response loginUserInvalidDataStatus401(UserData userData) {
+        return given()
                 .baseUri(Endpoints.BASE_URI)
                 .log().body()
                 .log().headers()
@@ -107,94 +82,75 @@ public class Utility {
                 .body(userData)
                 .header("Authorization", "Bearer" + accessToken)
                 .when()
-                .post(Endpoints.AUTHORIZATION)
-                .then()
-                .log().body()
-                .log().headers()
-                .log().status()
-                .body("success", is(false))
-                .body("message", is("email or password are incorrect"))
-                .statusCode(HTTP_UNAUTHORIZED);
+                .post(Endpoints.AUTHORIZATION);
     }
 
-    public void createOrderWithAutAndWithoutIngredientsStatus400() {
-        given()
+    @Step("Create order with auth and without ingredients")
+    public Response createOrderWithAutAndWithoutIngredientsStatus400(String accessToken) {
+        return given()
                 .baseUri(Endpoints.BASE_URI)
                 .contentType(ContentType.JSON)
                 .log().all()
                 .header("Authorization", "Bearer" + accessToken)
                 .when()
-                .post(Endpoints.CREATE_ORDER)
-                .then()
-                .log().body()
-                .log().status()
-                .body("success", is(false))
-                .body("message", is("Ingredient ids must be provided"))
-                .statusCode(HTTP_BAD_REQUEST);
+                .post(Endpoints.CREATE_ORDER);
     }
 
-    public void createOrderWithAutAndWithIngredientsStatus200() {
+    @Step("Create order with auth and with ingredients")
+    public Response createOrderWithAutAndWithIngredientsStatus200(String accessToken) {
         Ingredient ingredient = new Ingredient();
-        ingredient.getIngredients();
+        ingredient.loadIngredients();
 
         List<String> ids = Arrays.asList(
                 ingredient.listOfIngredients.get(1),
                 ingredient.listOfIngredients.get(3),
-                ingredient.listOfIngredients.get(7));
+                ingredient.listOfIngredients.get(7)
+        );
 
-        given()
+        OrderRequest order = new OrderRequest(ids);
+
+        return given()
                 .baseUri(Endpoints.BASE_URI)
                 .contentType(ContentType.JSON)
                 .log().all()
                 .header("Authorization", "Bearer" + accessToken)
-                .body(Map.of("ingredients", ids))
+                .body(order)
                 .when()
-                .post(Endpoints.CREATE_ORDER)
-                .then()
-                .log().body()
-                .log().status()
-                .body("success", is(true))
-                .body("order.owner.name", is(notNullValue()))
-                .statusCode(HTTP_OK);
+                .post(Endpoints.CREATE_ORDER);
     }
 
-    public void createOrderWithAuthAndWithWrongHashIngredientStatus500() {
+    @Step("Create order with auth and wrong ingredients")
+    public Response createOrderWithAuthAndWithWrongHashIngredientStatus500() {
         List<String> wrongIds = Arrays.asList(null, "Кто здесь?", "12345");
 
-        given()
+        return given()
                 .baseUri(Endpoints.BASE_URI)
                 .contentType(ContentType.JSON)
                 .log().all()
                 .header("Authorization", "Bearer" + accessToken)
                 .body(Map.of("ingredients", wrongIds))
                 .when()
-                .post(Endpoints.CREATE_ORDER)
-                .then()
-                .log().body()
-                .log().status()
-                .statusCode(HTTP_SERVER_ERROR);
+                .post(Endpoints.CREATE_ORDER);
     }
 
-    public void createOrderWithoutAuthStatus401() {
+    @Step("Create order without auth token")
+    public Response createOrderWithoutAuthStatus401() {
         Ingredient ingredient = new Ingredient();
-        ingredient.getIngredients();
+        ingredient.loadIngredients();
 
         List<String> ids = Arrays.asList(
                 ingredient.listOfIngredients.get(1),
                 ingredient.listOfIngredients.get(3),
-                ingredient.listOfIngredients.get(7));
+                ingredient.listOfIngredients.get(7)
+        );
 
-        given()
+        OrderRequest order = new OrderRequest(ids);
+
+        return given()
                 .baseUri(Endpoints.BASE_URI)
                 .contentType(ContentType.JSON)
+                .body(order)
                 .when()
-                .body(Map.of("ingredients", ids))
-                .get(Endpoints.CREATE_ORDER)
-                .then()
-                .log().body()
-                .log().status()
-                .body("success", is(false))
-                .body("message", is("You should be authorised"))
-                .statusCode(HTTP_UNAUTHORIZED);
+                .post(Endpoints.CREATE_ORDER);
     }
 }

@@ -1,28 +1,46 @@
-import io.qameta.allure.Step;
+import io.qameta.allure.junit4.DisplayName;
+import io.restassured.response.Response;
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
+import static java.net.HttpURLConnection.HTTP_BAD_REQUEST;
+import static org.hamcrest.Matchers.is;
+
 public class CreateOrderWithAuthAndWithoutIngredientsTest {
 
     private final Utility utility = new Utility();
-    UserData userData = new UserData(UserData.EMAIL, UserData.PASSWORD, UserData.NAME);
+    private String accessToken;
+    UserData userData = new UserData(
+            UserData.EMAIL,
+            UserData.PASSWORD,
+            UserData.NAME
+    );
 
     @Before
-    @Step("Create new User for token")
+    @DisplayName("Create new User for token")
     public void createNewUser() {
-        utility.createNewUserStatus200(userData);
+        Response responseToken = utility.createNewUser(userData);
+        accessToken = utility.extractToken(responseToken);
     }
 
     @Test
-    @Step("Create order with auth and without ingredients")
+    @DisplayName("Create order with auth and without ingredients")
     public void createOrderWithAutAndWithoutIngredientsStatus400() {
-        utility.createOrderWithAutAndWithoutIngredientsStatus400();
+        Response response = utility.createOrderWithAutAndWithoutIngredientsStatus400(accessToken);
+
+        response.then()
+                .body("success", is(false))
+                .body("message", is("Ingredient ids must be provided"))
+                .statusCode(HTTP_BAD_REQUEST)
+                .log().status()
+                .log().body();
+
     }
 
     @After
-    @Step("Delete user")
+    @DisplayName("Delete user")
     public void deleteUser() {
-        utility.deleteUserStatus202();
+        utility.deleteUserStatus202(accessToken);
     }
 }

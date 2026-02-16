@@ -1,22 +1,41 @@
-import io.qameta.allure.Step;
+import io.qameta.allure.junit4.DisplayName;
+import io.restassured.response.Response;
 import org.junit.After;
 import org.junit.Test;
+
+import static java.net.HttpURLConnection.HTTP_OK;
+import static org.hamcrest.Matchers.is;
+import static org.hamcrest.Matchers.notNullValue;
 
 
 public class CreateNewUserTest {
 
+    private String accessToken;
     private final Utility utility = new Utility();
-    UserData userData = new UserData(UserData.EMAIL, UserData.PASSWORD, UserData.NAME);
+    UserData userData = new UserData(
+            UserData.EMAIL,
+            UserData.PASSWORD,
+            UserData.NAME
+    );
 
     @Test
-    @Step("Create new User")
+    @DisplayName("Create new User and get token")
     public void createNewUser() {
-        utility.createNewUserStatus200(userData);
+        Response response = utility.createNewUser(userData);
+
+        response.then()
+                .statusCode(HTTP_OK)
+                .log().body()
+                .log().status()
+                .body("success", is(true))
+                .body("accessToken", is(notNullValue()));
+
+        accessToken = utility.extractToken(response);
     }
 
     @After
-    @Step("Delete user")
+    @DisplayName("Delete user")
     public void deleteUser() {
-        utility.deleteUserStatus202();
+        utility.deleteUserStatus202(accessToken);
     }
 }
