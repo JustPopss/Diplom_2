@@ -43,6 +43,7 @@ build/
 ### Allure ###
 .allure/
 allure-report/
-target/allure-results/
 target/site/allure-maven-plugin/
 !allure-results/
+!target/allure-results/
+!target/allure-results/**

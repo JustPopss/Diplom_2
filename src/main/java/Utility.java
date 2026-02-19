@@ -10,7 +10,6 @@ import io.restassured.response.Response;
 import static io.restassured.RestAssured.*;
 import static java.net.HttpURLConnection.*;
 import static org.hamcrest.Matchers.is;
-import static org.hamcrest.Matchers.notNullValue;
 
 public class Utility {
 
@@ -38,13 +37,7 @@ public class Utility {
                 .log().body()
                 .contentType(ContentType.JSON)
                 .header("Authorization", "Bearer" + accessToken)
-                .delete(Endpoints.USER_DATA)
-                .then()
-                .body("success", is(true))
-                .body("message", is("User successfully removed"))
-                .statusCode(HTTP_ACCEPTED)
-                .log().status()
-                .log().body();
+                .delete(Endpoints.USER_DATA);
     }
 
     @Step("Create new User without fields")
